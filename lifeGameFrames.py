@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """
 Author: Maida
-July 23, 2017
+Created: July 23, 2017
+Modified: Oct 21, 2017 to create a video file
 
 Creates a video of the Game of Life and converts each frame
 to a 4D tensor to use with TensorFlow.
@@ -12,9 +13,12 @@ View the tensor frames in TensorBoard as follows:
     In browser, open http address given.
     Then click "IMAGES" tab.
     Then click "videoFrames"
+    
+If ffmpeg is not installed, comment out line: 113
 """
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
+import matplotlib.animation as animation
 
 import numpy as np
 import random
@@ -27,11 +31,14 @@ def life_step_2(X):  # this function was given to me by a friend
     nbrs_count = convolve2d(X, np.ones((3, 3)), mode='same', boundary='fill') - X
     return (nbrs_count == 3) | (X & (nbrs_count == 2))
 
-LOGDIR = "/tmp/lifeVideo/"
+LOGDIR = "/tmp/lifeVideo/"    # for tensorboard
 LENGTH_OF_VID = 16
-BOARD_SZ      =  9
+BOARD_SZ      =  9   # 9x9
+
+# Store video in ndarray with three dimensions
 video = np.empty([LENGTH_OF_VID, BOARD_SZ, BOARD_SZ], dtype=np.int8)
 
+# Create an initial random board
 for i in range(BOARD_SZ):
     for j in range(BOARD_SZ):
         video[0,i,j] = random.randint(0,1) # init board to random 0s & 1s
@@ -42,13 +49,13 @@ for i in range(LENGTH_OF_VID - 1):
 print("Video frames :", video.shape)
 for i in range(LENGTH_OF_VID):
     print("Frame: ", i)
+    plt.gca().invert_yaxis()
     plt.imshow(video[i,:,:], cmap = cm.Greys_r) # print the board states
     plt.show()
-
+    
 raw_frame = video[0, :, :]
 raw_frame = np.expand_dims(raw_frame, axis = -1)
 print("raw_frame.shape: ", raw_frame.shape)
-
 
 graph = tf.Graph()
 with graph.as_default():
@@ -82,4 +89,28 @@ with tf.Session(graph=graph) as sess:
         print("shaped eval'd frame: ", evaled_frames[i].shape)
         ms = sess.run(msumm) # merge summary
         writer.add_summary(ms, i)
-                
+        
+"""
+How to write an animiation file.
+Does not need the TensorFlow results (based on numpy video).
+Writes file 'life_anim.mp4' to current directory using save().
+
+File writing needs ffmpeg to be installed.
+If using Anaconda Python, do this by typing:
+    conda install -c conda-forge ffmpeg
+at the terminal.
+"""
+fig1 = plt.figure()
+ax = fig1.add_subplot(111)
+ax.axis('equal')
+images = []
+for frame in range(LENGTH_OF_VID):
+    images.append((plt.pcolormesh(video[frame,:,:], cmap = cm.Greys_r),))
+    
+life_anim = animation.ArtistAnimation(fig1, images, interval=100, repeat_delay=3000, blit=True)
+
+# Comment out the next line if ffmpet is not installed
+life_anim.save('life_anim.mp4', metadata={'artist':'Tony'}) # This writes the full animation
+
+# This will only show the last frame in the animation.
+plt.show()
